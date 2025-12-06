@@ -24,17 +24,17 @@ object StreamFifaEvents {
 
   val hbaseConf: Configuration = HBaseConfiguration.create()
   val hbaseConnection = ConnectionFactory.createConnection(hbaseConf)
-  val table = hbaseConnection.getTable(TableName.valueOf("wuh_fifa_events_log"))
+
+  // Append-only event table
+  val eventLogTable = hbaseConnection.getTable(TableName.valueOf("wuh_fifa_events_log"))
+
+  // Live stats table
+  val liveTable = hbaseConnection.getTable(TableName.valueOf("wuh_fifa_team_stats"))
 
   def main(args: Array[String]) {
 
     if (args.length < 1) {
-      System.err.println(
-        s"""
-           |Usage: StreamFifaEvents <brokers>
-           |  <brokers> is a list of one or more Kafka brokers
-         """.stripMargin)
-      System.exit(1)
+        System.exit(1)
     }
 
     val Array(brokers) = args
@@ -55,8 +55,8 @@ object StreamFifaEvents {
       "sasl.mechanism" -> "SCRAM-SHA-512",
       "sasl.jaas.config" -> (
         "org.apache.kafka.common.security.scram.ScramLoginModule required " +
-          "username=\"mpcs53014-2025\" password=\"Kafka password here\";"
-        )
+        "username=\"mpcs53014-2025\" password=\"A3v4rd4@ujjw\";"
+      )
     )
 
     val stream = KafkaUtils.createDirectStream[String, String](
@@ -68,16 +68,25 @@ object StreamFifaEvents {
     val serializedRecords = stream.map(_.value)
     val events = serializedRecords.map(rec => mapper.readValue(rec, classOf[FifaEvent]))
 
-    // Append-only event log: rowkey = country#ts
     val writes = events.map { ev =>
-      val rowKey = s"${ev.country}#${ev.ts}"
-      val put = new Put(Bytes.toBytes(rowKey))
-      put.addColumn(Bytes.toBytes("e"), Bytes.toBytes("rank"), Bytes.toBytes(ev.new_rank))
-      put.addColumn(Bytes.toBytes("e"), Bytes.toBytes("points"), Bytes.toBytes(ev.points))
-      put.addColumn(Bytes.toBytes("e"), Bytes.toBytes("ts"), Bytes.toBytes(ev.ts))
+      val now = ev.ts
 
-      table.put(put)
-      s"Wrote event for ${ev.country} rank=${ev.new_rank} points=${ev.points}"
+      // 1. APPEND TO EVENT LOG
+      val rowKey = s"${ev.country}#${now}"
+      val putEvent = new Put(Bytes.toBytes(rowKey))
+      putEvent.addColumn(Bytes.toBytes("e"), Bytes.toBytes("rank"), Bytes.toBytes(ev.new_rank))
+      putEvent.addColumn(Bytes.toBytes("e"), Bytes.toBytes("points"), Bytes.toBytes(ev.points))
+      putEvent.addColumn(Bytes.toBytes("e"), Bytes.toBytes("ts"), Bytes.toBytes(now))
+      eventLogTable.put(putEvent)
+
+      // 2. UPDATE LIVE TABLE (SPEED LAYER OUTPUT)
+      val livePut = new Put(Bytes.toBytes(ev.country))
+      livePut.addColumn(Bytes.toBytes("stats"), Bytes.toBytes("latest_live_rank"), Bytes.toBytes(ev.new_rank))
+      livePut.addColumn(Bytes.toBytes("stats"), Bytes.toBytes("latest_live_points"), Bytes.toBytes(ev.points))
+      livePut.addColumn(Bytes.toBytes("stats"), Bytes.toBytes("latest_live_ts"), Bytes.toBytes(now))
+      liveTable.put(livePut)
+
+      s"Updated LIVE for ${ev.country}: rank=${ev.new_rank} points=${ev.points}"
     }
 
     writes.print()

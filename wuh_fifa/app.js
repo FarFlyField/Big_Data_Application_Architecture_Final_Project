@@ -27,7 +27,7 @@ var hclient = hbase({
 // Kafka client (fill in your actual broker string from class)
 const kafka = new Kafka({
     clientId: 'wuh-fifa-app',
-    brokers: [process.env.KAFKA_BROKER || 'boot-publicbyg.mpcs53014kafka.2siu49.c2.kafka.us-east-1.amazonaws.com:9196'],
+    brokers: [process.env.KAFKA_BROKER || 'boot-public-byg.mpcs53014kafka.2siu49.c2.kafka.us-east-1.amazonaws.com:9196'],
     ssl: true,
     sasl: {
         mechanism: 'scram-sha-512',
