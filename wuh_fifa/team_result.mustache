@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Team Stats: {{country}}</title>
+  <link rel="stylesheet" href="/elegant-aero.css"/>
+</head>
+
+<body style="background:white;">
+  <h2 style="text-align:center">Stats for {{country}}</h2>
+
+  <table border="1" cellpadding="6" style="margin:0 auto;background:#fff">
+    <tr><th>Statistic</th><th>Value</th></tr>
+    <tr><td>Best Rank</td>                   <td>{{best_rank}}</td></tr>
+    <tr><td>Worst Rank</td>                  <td>{{worst_rank}}</td></tr>
+    <tr><td>First Ranking Year</td>          <td>{{first_year_active}}</td></tr>
+    <tr><td>Last Ranking Year</td>           <td>{{last_year_active}}</td></tr>
+    <tr><td>Total Years Ranked</td>          <td>{{total_years_ranked}}</td></tr>
+    <tr><td>Avg Absolute Rank Change</td>    <td>{{avg_abs_rank_change}}</td></tr>
+    <tr><td>Confederation Avg Points</td>    <td>{{confed_avg_points}}</td></tr>
+  </table>
+
+  <p style="text-align:center"><a href="/">Back</a></p>
+</body>
+</html>

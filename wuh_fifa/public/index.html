@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FIFA Rankings Explorer</title>
+    <link type="text/css" rel="stylesheet" href="elegant-aero.css" />
+</head>
+
+<body style='background-image:URL("world_cup.png");
+             background-repeat:no-repeat;
+             background-position:center top;
+             background-size:100%;'>
+
+<p style="margin-bottom:2cm"></p>
+
+<h2 class="elegant-aero"
+    style="text-align:center;display:block;background:white;color:#333;">
+    FIFA Team Rankings Explorer
+</h2>
+
+<p style="text-align:center;">
+    <a href="/countries"
+       style="background:white;padding:8px 16px;border-radius:6px;color:black;font-weight:bold;text-decoration:none;">
+        View All Available Countries
+    </a>
+</p>
+
+<!-- Team Stats Lookup -->
+<form action="/team_stats.html"
+      style="width:350px;margin:0 auto;background:#FFFFFF"
+      method="get"
+      target="results_iframe"
+      class="elegant-aero">
+
+    <label>
+        <span>Country:</span>
+        <input type="text" name="country" placeholder="Brazil" />
+    </label>
+
+    <label>
+        <span></span>
+        <input type="submit" value="Search"
+               style="background:white;color:black;font-weight:bold;">
+    </label>
+</form>
+
+<p style="margin-bottom:1cm"></p>
+
+<!-- Submit ranking event -->
+<div style="text-align:center;">
+    <a href="/submit-event.html"
+       style="background:white;
+                  padding:10px 20px;
+                  border-radius:6px;
+                  color:black;
+                  font-weight:bold;
+                  text-decoration:none;">
+        Submit Live Ranking Event
+    </a>
+</div>
+
+<p style="margin-bottom:2cm"></p>
+
+<!-- Results -->
+<iframe id="results_iframe"
+        frameBorder="0"
+        name="results_iframe"
+        style="display:block;width:70%;margin:0 auto;overflow:hidden;height:auto;"
+        onload="this.style.height=this.contentWindow.document.body.scrollHeight + 'px';">
+</iframe>
+
+</body>
+</html>

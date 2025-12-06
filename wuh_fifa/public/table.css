@@ -1,0 +1,49 @@
+.CSS_Table_Example {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 20px auto;
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+}
+
+.CSS_Table_Example table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Table header */
+.CSS_Table_Example tr:first-child td {
+    background: #0066cc; /* FIFA blue */
+    color: white;
+    font-size: 18px;
+    font-family: "Trebuchet MS", sans-serif;
+    font-weight: bold;
+    text-align: center;
+    padding: 12px;
+}
+
+/* Table cells */
+.CSS_Table_Example td {
+    font-family: Arial, sans-serif;
+    padding: 10px;
+    border-bottom: 1px solid #e3e3e3;
+    border-right: 1px solid #e3e3e3;
+    color: #000;
+    background: white;
+}
+
+/* Last column border fix */
+.CSS_Table_Example td:last-child {
+    border-right: none;
+}
+
+/* Hover effect */
+.CSS_Table_Example tr:hover td {
+    background: #e6f0ff;
+}
+
+/* Remove bottom border of last row */
+.CSS_Table_Example tr:last-child td {
+    border-bottom: none;
+}

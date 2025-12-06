@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Submit Live Ranking Event</title>
+    <link rel="stylesheet" href="/elegant-aero.css">
+</head>
+
+<body style='background-image:URL("world_cup.png");
+             background-repeat:no-repeat;
+             background-position:center top;
+             -webkit-background-size:100%;
+             -moz-background-size:100%;
+             -o-background-size:100%;
+             background-size: 100%;'>
+
+<p style="margin-bottom:2cm"></p>
+
+<h2 class="elegant-aero"
+    style="text-align:center;display:block;background:white;color:#333;">
+    Submit Live Ranking Event
+</h2>
+
+<form action="/submit_event"
+      method="get"
+      style="width:50%;margin:0 auto;background:white;"
+      class="elegant-aero">
+
+    <label>
+        <span>Country:</span>
+        <input type="text" name="country" placeholder="Brazil" required>
+    </label>
+
+    <label>
+        <span>New Rank:</span>
+        <input type="number" name="new_rank" min="1" max="300" required>
+    </label>
+
+    <label>
+        <span>New Points:</span>
+        <input type="number" name="points" step="0.01" required>
+    </label>
+
+    <label>
+        <span></span>
+        <input type="submit" value="Submit"
+               style="background:white;color:black;font-weight:bold;">
+    </label>
+</form>
+
+<p style="margin-top:20px;text-align:center;">
+    <a href="/" style="color:white;font-weight:bold;">Back</a>
+</p>
+
+</body>
+</html>
