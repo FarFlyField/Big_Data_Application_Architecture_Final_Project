@@ -9,6 +9,8 @@
 <body style="background:white;">
   <h2 style="text-align:center">Stats for {{country}}</h2>
 
+  <!-- Batch Layer Stats -->
+  <h3 style="text-align:center;margin-top:30px;">Batch Layer Statistics</h3>
   <table border="1" cellpadding="6" style="margin:0 auto;background:#fff">
     <tr><th>Statistic</th><th>Value</th></tr>
     <tr><td>Best Rank</td>                   <td>{{best_rank}}</td></tr>
@@ -20,6 +22,17 @@
     <tr><td>Confederation Avg Points</td>    <td>{{confed_avg_points}}</td></tr>
   </table>
 
-  <p style="text-align:center"><a href="/">Back</a></p>
+  <!-- Speed Layer Stats -->
+  <h3 style="text-align:center;margin-top:30px;">Live Updates (Speed Layer)</h3>
+  <table border="1" cellpadding="6" style="margin:0 auto;background:#fff">
+    <tr><th>Statistic</th><th>Value</th></tr>
+    <tr><td>Latest Live Rank</td>            <td>{{latest_live_rank}}</td></tr>
+    <tr><td>Latest Live Points</td>          <td>{{latest_live_points}}</td></tr>
+    <tr><td>Last Update Timestamp</td>       <td>{{latest_live_ts}}</td></tr>
+  </table>
+
+  <p style="text-align:center;margin-top:20px;">
+    <a href="/">Back</a>
+  </p>
 </body>
 </html>

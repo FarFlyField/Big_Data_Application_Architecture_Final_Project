@@ -1,21 +1,27 @@
 'use strict';
 
-const { Kafka } = require('kafkajs');
 const express = require('express');
 const mustache = require('mustache');
 const fs = require('fs');
+const { Kafka } = require('kafkajs');
 require('dotenv').config();
 
+const hbase = require('hbase');
 const app = express();
 
-// Server config (Got from IntelliJ)
+// ----------------------------------------------------
+// Server config from CLI args
+// Example:
+//    node app.js 3000 http://localhost:8080
+// ----------------------------------------------------
 const port = Number(process.argv[2]);
 const url = new URL(process.argv[3]);
 
 console.log("Connecting to HBase at:", url.href);
 
-const hbase = require('hbase');
-
+// ----------------------------------------------------
+// HBase CLIENT
+// ----------------------------------------------------
 var hclient = hbase({
     host: url.hostname,
     port: url.port,
@@ -24,10 +30,15 @@ var hclient = hbase({
     encoding: 'latin1'
 });
 
-// Kafka client (fill in your actual broker string from class)
+// ----------------------------------------------------
+// Kafka Producer Setup
+// ----------------------------------------------------
 const kafka = new Kafka({
     clientId: 'wuh-fifa-app',
-    brokers: [process.env.KAFKA_BROKER || 'boot-public-byg.mpcs53014kafka.2siu49.c2.kafka.us-east-1.amazonaws.com:9196'],
+    brokers: [
+        process.env.KAFKA_BROKER ||
+        'boot-public-byg.mpcs53014kafka.2siu49.c2.kafka.us-east-1.amazonaws.com:9196'
+    ],
     ssl: true,
     sasl: {
         mechanism: 'scram-sha-512',
@@ -41,90 +52,89 @@ const producer = kafka.producer();
 (async () => {
     try {
         await producer.connect();
-        console.log("Kafka producer connected");
-    } catch (e) {
-        console.error("Kafka producer connection failed:", e);
+        console.log("Kafka producer connected.");
+    } catch (err) {
+        console.error("Kafka producer connection failed:", err);
     }
 })();
 
-
-// Helpers
+// ----------------------------------------------------
+// Helper functions
+// ----------------------------------------------------
 function cellValueToNumber(val) {
-    const intOrFloat = /^-?\d+(\.\d+)?$/;  // allow integers AND decimals
+    if (val == null) return 0;
 
+    // If it's already a JS number, return it
+    if (typeof val === 'number') return val;
+
+    // Strings: try simple number or fallback to buffer decode
     if (typeof val === 'string') {
-        // First try interpreting the string as text
-        if (intOrFloat.test(val.trim())) {
-            return Number(val.trim());
-        }
-        // Then try treating it as binary and decoding to UTF-8
-        const buf = Buffer.from(val, 'latin1');
-        const asText = buf.toString('utf8').trim();
-        if (intOrFloat.test(asText)) {
-            return Number(asText);
-        }
-        return 0;
+        const trimmed = val.trim();
+        if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+        val = Buffer.from(val, 'latin1'); // ensure Buffer
     }
 
     if (Buffer.isBuffer(val)) {
-        // Try UTF-8 text first
-        const asText = val.toString('utf8').trim();
-        if (intOrFloat.test(asText)) {
-            return Number(asText);
-        }
-
-        // If it's an 8-byte binary number, last resort: try double
-        if (val.length === 8) {
-            try {
-                return val.readDoubleBE(0);
-            } catch {
-                // fallback below
+        // Detect numeric types by length
+        try {
+            if (val.length === 4) {
+                // 32-bit int (big-endian)
+                return val.readInt32BE(0);
             }
+            if (val.length === 8) {
+                // First try double
+                const dbl = val.readDoubleBE(0);
+                if (!isNaN(dbl)) return dbl;
+
+                // Otherwise treat as long
+                return Number(val.readBigInt64BE(0));
+            }
+        } catch (e) {
+            console.error("Decode error:", e);
         }
     }
-    return Number(val) || 0;
+
+    return 0;
 }
 
 function rowToMap(row) {
-    const stats = {};
-    row.forEach((item) => {
-        stats[item.column.split(':')[1]] = cellValueToNumber(item['$']);
+    const out = {};
+    row.forEach(col => {
+        let cf = col.column.split(':')[1];
+        out[cf] = cellValueToNumber(col['$']);
     });
-    return stats;
+    return out;
 }
 
-// Static files
+// Serve static files
 app.use(express.static('public'));
 
-// Render submit-event.html
+// ----------------------------------------------------
+// SUBMIT EVENT (write to Kafka)
+// ----------------------------------------------------
 app.get('/submit_event', async (req, res) => {
-    const country = (req.query['country'] || '').trim();
-    const newRank = Number(req.query['new_rank']);
-    const points  = Number(req.query['points']);
-    const ts      = Date.now();
+    const country = (req.query.country || '').trim();
+    const newRank = Number(req.query.new_rank);
+    const points = Number(req.query.points);
+    const ts = Date.now();
 
     if (!country || Number.isNaN(newRank) || Number.isNaN(points)) {
         return res.send("<h2 style='color:red;text-align:center'>Invalid inputs.</h2>");
     }
 
-    const event = {
-        country,
-        new_rank: newRank,
-        points,
-        ts
-    };
+    const event = { country, new_rank: newRank, points, ts };
 
     try {
         await producer.send({
             topic: 'wuh_fifa_events',
-            messages: [
-                { value: JSON.stringify(event) }
-            ],
+            messages: [{ value: JSON.stringify(event) }]
         });
 
         res.send(`
             <h2 style="text-align:center;color:green">Event Sent to Kafka!</h2>
-            <pre style="width:50%;margin:0 auto;background:#f0f0f0;padding:10px;">${JSON.stringify(event, null, 2)}</pre>
+            <pre style="width:50%;margin:0 auto;background:#f0f0f0;padding:10px;">
+${JSON.stringify(event, null, 2)}
+            </pre>
             <p style="text-align:center"><a href="/">Back</a></p>
         `);
 
@@ -135,29 +145,8 @@ app.get('/submit_event', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// Submit live-ranking event (speed layer later)
+// LIST AVAILABLE COUNTRIES
 // ----------------------------------------------------
-app.get('/submit_event', (req, res) => {
-    const country = (req.query['country'] || '').trim();
-    const newRank = Number(req.query['new_rank']);
-    const points  = Number(req.query['points']);
-
-    if (!country || Number.isNaN(newRank) || Number.isNaN(points)) {
-        return res.send("<h2 style='color:red;text-align:center'>Invalid inputs.</h2>");
-    }
-
-    // For now: just acknowledge. Later: push to Kafka.
-    res.send(`
-        <h2 style="text-align:center;color:green">Event Received!</h2>
-        <p style="text-align:center">
-            Country: ${country}<br>
-            New Rank: ${newRank}<br>
-            New Points: ${points}
-        </p>
-        <p style="text-align:center"><a href="/">Back</a></p>
-    `);
-});
-
 app.get('/countries', (req, res) => {
     const rows = [];
 
@@ -168,7 +157,6 @@ app.get('/countries', (req, res) => {
                 return res.send("<h2 style='color:red;text-align:center'>HBase error while scanning countries.</h2>");
             }
 
-            // Extract row keys ONLY
             const seen = new Set();
             cells.forEach(cell => {
                 if (!seen.has(cell.key)) {
@@ -177,21 +165,19 @@ app.get('/countries', (req, res) => {
                 }
             });
 
-            // Sort alphabetically
             rows.sort();
 
-            // Render a very simple HTML page
             let html = `
                 <html><head>
                 <title>Available Countries</title>
                 <link rel="stylesheet" href="/elegant-aero.css">
                 </head><body style="background:white;">
-                <h2 style="text-align:center;">Available Countries in Database</h2>
+                <h2 style="text-align:center;">Available Countries</h2>
                 <div style="width:50%;margin:0 auto;background:white;padding:20px;" class="elegant-aero">
                     <ul style="list-style:none;padding-left:0;">`;
 
             rows.forEach(c => {
-                html += `<li style="padding:4px 0;font-size:16px;">
+                html += `<li style="padding:5px 0;font-size:18px;">
                             <a href="/team_stats.html?country=${encodeURIComponent(c)}">${c}</a>
                          </li>`;
             });
@@ -208,10 +194,10 @@ app.get('/countries', (req, res) => {
 });
 
 // ----------------------------------------------------
-// Lookup team stats from HBase
+// TEAM STATS (speed-layer output)
 // ----------------------------------------------------
 app.get('/team_stats.html', (req, res) => {
-    const country = (req.query['country'] || '').trim();
+    const country = (req.query.country || '').trim();
 
     if (!country) {
         return res.send("<h2 style='color:red;text-align:center'>Missing country name.</h2>");
@@ -227,7 +213,7 @@ app.get('/team_stats.html', (req, res) => {
             if (!cells || cells.length === 0) {
                 return res.send(`
                     <h2 style="color:red;text-align:center">
-                        '${country}' is not found in FIFA dataset.
+                        '${country}' not found in FIFA dataset.
                     </h2>
                     <p style="text-align:center"><a href="/">Back</a></p>
                 `);
