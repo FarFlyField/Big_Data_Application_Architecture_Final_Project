@@ -9,19 +9,13 @@ require('dotenv').config();
 const hbase = require('hbase');
 const app = express();
 
-// ----------------------------------------------------
-// Server config from CLI args
-// Example:
-//    node app.js 3000 http://localhost:8080
-// ----------------------------------------------------
+// Server config from CLI args (Configured on IntelliJ as 3000 and HBase URL)
 const port = Number(process.argv[2]);
 const url = new URL(process.argv[3]);
 
 console.log("Connecting to HBase at:", url.href);
 
-// ----------------------------------------------------
 // HBase CLIENT
-// ----------------------------------------------------
 var hclient = hbase({
     host: url.hostname,
     port: url.port,
@@ -30,9 +24,7 @@ var hclient = hbase({
     encoding: 'latin1'
 });
 
-// ----------------------------------------------------
 // Kafka Producer Setup
-// ----------------------------------------------------
 const kafka = new Kafka({
     clientId: 'wuh-fifa-app',
     brokers: [
@@ -58,42 +50,34 @@ const producer = kafka.producer();
     }
 })();
 
-// ----------------------------------------------------
-// Helper functions
-// ----------------------------------------------------
+// Helper functions to decode HBase cell values
 function cellValueToNumber(val) {
     if (val == null) return 0;
 
-    // If it's already a JS number, return it
     if (typeof val === 'number') return val;
 
-    // Strings: try simple number or fallback to buffer decode
     if (typeof val === 'string') {
         const trimmed = val.trim();
         if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
-        val = Buffer.from(val, 'latin1'); // ensure Buffer
+        val = Buffer.from(val, 'latin1');
     }
 
     if (Buffer.isBuffer(val)) {
-        // Detect numeric types by length
         try {
             if (val.length === 4) {
                 // 32-bit int (big-endian)
+                // Specifically for vals submited from Kafka, decode them here. 
                 return val.readInt32BE(0);
             }
             if (val.length === 8) {
-                // First try double
                 const dbl = val.readDoubleBE(0);
                 if (!isNaN(dbl)) return dbl;
-
-                // Otherwise treat as long
                 return Number(val.readBigInt64BE(0));
             }
         } catch (e) {
             console.error("Decode error:", e);
         }
     }
-
     return 0;
 }
 
@@ -106,12 +90,9 @@ function rowToMap(row) {
     return out;
 }
 
-// Serve static files
 app.use(express.static('public'));
 
-// ----------------------------------------------------
 // SUBMIT EVENT (write to Kafka)
-// ----------------------------------------------------
 app.get('/submit_event', async (req, res) => {
     const country = (req.query.country || '').trim();
     const newRank = Number(req.query.new_rank);
@@ -124,6 +105,7 @@ app.get('/submit_event', async (req, res) => {
 
     const event = { country, new_rank: newRank, points, ts };
 
+    // Return the html response after sending to Kafka
     try {
         await producer.send({
             topic: 'wuh_fifa_events',
@@ -133,20 +115,17 @@ app.get('/submit_event', async (req, res) => {
         res.send(`
             <h2 style="text-align:center;color:green">Event Sent to Kafka!</h2>
             <pre style="width:50%;margin:0 auto;background:#f0f0f0;padding:10px;">
-${JSON.stringify(event, null, 2)}
+            ${JSON.stringify(event, null, 2)}
             </pre>
             <p style="text-align:center"><a href="/">Back</a></p>
         `);
-
     } catch (err) {
         console.error("Error sending to Kafka:", err);
         res.send("<h2 style='color:red;text-align:center'>Failed to send event to Kafka.</h2>");
     }
 });
 
-// ----------------------------------------------------
 // LIST AVAILABLE COUNTRIES
-// ----------------------------------------------------
 app.get('/countries', (req, res) => {
     const rows = [];
 
@@ -183,19 +162,16 @@ app.get('/countries', (req, res) => {
             });
 
             html += `
-                    </ul>
+                </ul>
                 </div>
                 <p style="text-align:center;"><a href="/">Back</a></p>
                 </body></html>
             `;
-
             res.send(html);
         });
 });
 
-// ----------------------------------------------------
-// TEAM STATS (speed-layer output)
-// ----------------------------------------------------
+// TEAM STATS LOOKUP
 app.get('/team_stats.html', (req, res) => {
     const country = (req.query.country || '').trim();
 
@@ -225,9 +201,7 @@ app.get('/team_stats.html', (req, res) => {
         });
 });
 
-// ----------------------------------------------------
 // Start server
-// ----------------------------------------------------
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
